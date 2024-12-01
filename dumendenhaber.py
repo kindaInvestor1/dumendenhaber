@@ -11,6 +11,7 @@ CHAT_ID = "6041080562"
 
 # Daha önce bildirilen haberleri saklamak için bir liste
 notified_news = set()
+no_news_count = 0  # Yeni haber bulunamadığında kaç kez kontrol yapıldığını sayar
 
 # Haber sitesinden en son haberi çekme fonksiyonu
 def fetch_latest_news():
@@ -28,23 +29,30 @@ def fetch_latest_news():
 
 # Yeni haberi kontrol edip Telegram'a gönderen fonksiyon
 async def check_and_notify():
-    global notified_news
+    global notified_news, no_news_count
     print("Haberler kontrol ediliyor...")
     
     latest_news = fetch_latest_news()
     if not latest_news:
-        print("Yeni haber bulunamadı.")
+        no_news_count += 1
+        if no_news_count <= 2:  # İlk iki "Yeni haber yok" mesajını gönder
+            message = "Yeni bir haber bulunamadı."
+            print(message)
+            await send_telegram_message(message)
+        elif no_news_count > 2:  # 2 defadan sonra mesaj göndermeyi durdur
+            print("Yeni haber yok. Daha fazla mesaj gönderilmeyecek.")
         return
-    
+
     title, link = latest_news
-    print(f"Kontrol edilen haber: {title}")
-    
-    if title not in notified_news:
+    if title not in notified_news:  # Eğer yeni bir haber varsa
         message = f"Yeni Haber:\nBaşlık: {title}\nBağlantı: {link}"
         print(f"Gönderilecek mesaj: {message}")
-        await send_telegram_message(message)  # Mesaj gönderme işlemi asenkron
+        await send_telegram_message(message)
         notified_news.add(title)
+        no_news_count = 0  # Yeni haber bulunduğunda sayacı sıfırla
         print(f"Bildirim gönderildi: {title}")
+    else:
+        print(f"Kontrol edilen haber zaten bildirildi: {title}")
 
 # Telegram mesajı gönderme fonksiyonu
 async def send_telegram_message(message):
@@ -63,3 +71,4 @@ schedule.every(1).minutes.do(lambda: asyncio.run(check_and_notify()))
 
 print("Bot çalışıyor. Yeni haberler kontrol ediliyor...")
 run_scheduler()
+
